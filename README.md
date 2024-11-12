@@ -89,6 +89,7 @@ junit (
      autoResolveIssue: false,
      autoUnlinkIssue: false,
      additionalAttachments: false,
+     manualAddIssue: false,
    )
  ]
 )
@@ -120,6 +121,7 @@ Checking **Auto resolve issue** check box will enable an experimental feature. B
 
 If you check the **Auto unlink issues when test passes** check box, this plugin will automatically unlink issues for all the tests changing to passed in new builds.
 
+If you check the **Manually link or raise issues** check box, this plugin will allow to manually link or create issues to the failing tests in new builds also if auto raise is not enabled.
 
 ![image of job config settings](img/job-config1.png)
 
