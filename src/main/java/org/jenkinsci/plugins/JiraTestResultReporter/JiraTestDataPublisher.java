@@ -36,6 +36,7 @@ import com.atlassian.jira.rest.client.auth.BasicHttpAuthenticationHandler;
 import com.atlassian.jira.rest.client.internal.async.AsynchronousHttpClientFactory;
 import com.atlassian.jira.rest.client.internal.async.AsynchronousJiraRestClientFactory;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
@@ -69,7 +70,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nonnull;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 import org.jenkinsci.Symbol;
@@ -131,6 +131,14 @@ public class JiraTestDataPublisher extends TestDataPublisher {
         return JobConfigMapping.getInstance().getAutoUnlinkIssue(getJobName());
     }
 
+    public boolean getOverrideResolvedIssues() {
+        return JobConfigMapping.getInstance().getOverrideResolvedIssues(getJobName());
+    }
+
+    public boolean getManualAddIssue() {
+        return JobConfigMapping.getInstance().getManualAddIssue(getJobName());
+    }
+
     /**
      * Getter for list of attachments by test method identified by its classname and name
      * @param className
@@ -180,10 +188,11 @@ public class JiraTestDataPublisher extends TestDataPublisher {
                 .withProjectKey(this.jobConfig.getProjectKey())
                 .withIssueType(this.jobConfig.getIssueType())
                 .withAutoRaiseIssues(this.jobConfig.getAutoRaiseIssue())
-                .withOverrideResolvedIssues(this.jobConfig.getOverrideResolvedIssues())
                 .withAutoResolveIssues(this.jobConfig.getAutoResolveIssue())
                 .withAutoUnlinkIssues(this.jobConfig.getAutoUnlinkIssue())
                 .withAdditionalAttachments(additionalAttachments)
+                .withOverrideResolvedIssues(this.jobConfig.getOverrideResolvedIssues())
+                .withManualAddIssues(this.jobConfig.getManualAddIssue())
                 .withConfigs(this.jobConfig.getConfigs())
                 .build();
     }
@@ -197,6 +206,7 @@ public class JiraTestDataPublisher extends TestDataPublisher {
      * @param autoResolveIssue
      * @param autoUnlinkIssue
      * @param overrideResolvedIssues
+     * @param manualAddIssue
      */
     @DataBoundConstructor
     public JiraTestDataPublisher(
@@ -206,7 +216,8 @@ public class JiraTestDataPublisher extends TestDataPublisher {
             boolean autoRaiseIssue,
             boolean autoResolveIssue,
             boolean autoUnlinkIssue,
-            boolean overrideResolvedIssues) {
+            boolean overrideResolvedIssues,
+            boolean manualAddIssue) {
 
         long defaultIssueType;
         try {
@@ -219,9 +230,10 @@ public class JiraTestDataPublisher extends TestDataPublisher {
                 .withProjectKey(projectKey)
                 .withIssueType(defaultIssueType)
                 .withAutoRaiseIssues(autoRaiseIssue)
-                .withOverrideResolvedIssues(overrideResolvedIssues)
                 .withAutoResolveIssues(autoResolveIssue)
                 .withAutoUnlinkIssues(autoUnlinkIssue)
+                .withOverrideResolvedIssues(overrideResolvedIssues)
+                .withManualAddIssues(manualAddIssue)
                 .withConfigs(Util.fixNull(configs))
                 .build();
 
@@ -249,7 +261,7 @@ public class JiraTestDataPublisher extends TestDataPublisher {
      */
     @Override
     public TestResultAction.Data contributeTestData(
-            Run<?, ?> run, @Nonnull FilePath workspace, Launcher launcher, TaskListener listener, TestResult testResult)
+            Run<?, ?> run, @NonNull FilePath workspace, Launcher launcher, TaskListener listener, TestResult testResult)
             throws IOException, InterruptedException {
 
         EnvVars envVars = run.getEnvironment(listener);
@@ -288,6 +300,10 @@ public class JiraTestDataPublisher extends TestDataPublisher {
 
         if (JobConfigMapping.getInstance().getAutoUnlinkIssue(project)) {
             hasTestData |= unlinkIssuesForPassedTests(listener, project, job, envVars, getTestCaseResults(testResult));
+        }
+
+        if (JobConfigMapping.getInstance().getManualAddIssue(project)) {
+            hasTestData |= true;
         }
 
         if (hasTestData) {
@@ -681,6 +697,7 @@ public class JiraTestDataPublisher extends TestDataPublisher {
             Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             String serverName;
             try {
+                //implicit URL validation check
                 new URL(jiraUrl);
                 URI uri = new URI(jiraUrl);
                 if (uri == null) {
@@ -793,6 +810,10 @@ public class JiraTestDataPublisher extends TestDataPublisher {
                     jiraPublisherJSON = (JSONObject) publishers.get(o);
                     break;
                 }
+            }
+
+            if (jiraPublisherJSON == null) {
+                return FormValidation.error("jiraPublisherJSON is null.\n");
             }
 
             // constructing the objects from json
