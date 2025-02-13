@@ -508,6 +508,11 @@ public class JiraTestDataPublisher extends TestDataPublisher {
             return jiraUri;
         }
 
+        @DataBoundSetter
+        public void setJiraUri(URI input) {
+            jiraUri = input;
+        }
+
         public String getUsername() {
             return username;
         }
